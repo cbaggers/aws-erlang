@@ -101,6 +101,8 @@
          decrypt/3,
          delete_alias/2,
          delete_alias/3,
+         delete_imported_key_material/2,
+         delete_imported_key_material/3,
          describe_key/2,
          describe_key/3,
          disable_key/2,
@@ -123,6 +125,10 @@
          get_key_policy/3,
          get_key_rotation_status/2,
          get_key_rotation_status/3,
+         get_parameters_for_import/2,
+         get_parameters_for_import/3,
+         import_key_material/2,
+         import_key_material/3,
          list_aliases/2,
          list_aliases/3,
          list_grants/2,
@@ -131,6 +137,8 @@
          list_key_policies/3,
          list_keys/2,
          list_keys/3,
+         list_resource_tags/2,
+         list_resource_tags/3,
          list_retirable_grants/2,
          list_retirable_grants/3,
          put_key_policy/2,
@@ -143,6 +151,10 @@
          revoke_grant/3,
          schedule_key_deletion/2,
          schedule_key_deletion/3,
+         tag_resource/2,
+         tag_resource/3,
+         untag_resource/2,
+         untag_resource/3,
          update_alias/2,
          update_alias/3,
          update_key_description/2,
@@ -156,7 +168,8 @@
 
 %% @doc Cancels the deletion of a customer master key (CMK). When this
 %% operation is successful, the CMK is set to the <code>Disabled</code>
-%% state. To enable a CMK, use <a>EnableKey</a>.
+%% state. To enable a CMK, use <a>EnableKey</a>. You cannot perform this
+%% operation on a CMK in a different AWS account.
 %%
 %% For more information about scheduling and canceling deletion of a CMK, see
 %% <a
@@ -170,18 +183,31 @@ cancel_key_deletion(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"CancelKeyDeletion">>, Input, Options).
 
-%% @doc Creates a display name for a customer master key. An alias can be
-%% used to identify a key and should be unique. The console enforces a
-%% one-to-one mapping between the alias and a key. An alias name can contain
-%% only alphanumeric characters, forward slashes (/), underscores (_), and
-%% dashes (-). An alias must start with the word "alias" followed by a
-%% forward slash (alias/). An alias that begins with "aws" after the forward
-%% slash (alias/aws...) is reserved by Amazon Web Services (AWS).
+%% @doc Creates a display name for a customer master key (CMK). You can use
+%% an alias to identify a CMK in selected operations, such as <a>Encrypt</a>
+%% and <a>GenerateDataKey</a>.
 %%
-%% The alias and the key it is mapped to must be in the same AWS account and
-%% the same region.
+%% Each CMK can have multiple aliases, but each alias points to only one CMK.
+%% The alias name must be unique in the AWS account and region. To simplify
+%% code that runs in multiple regions, use the same alias name, but point it
+%% to a different CMK in each region.
 %%
-%% To map an alias to a different key, call <a>UpdateAlias</a>.
+%% Because an alias is not a property of a CMK, you can delete and change the
+%% aliases of a CMK without affecting the CMK. Also, aliases do not appear in
+%% the response from the <a>DescribeKey</a> operation. To get the aliases of
+%% all CMKs, use the <a>ListAliases</a> operation.
+%%
+%% An alias must start with the word <code>alias</code> followed by a forward
+%% slash (<code>alias/</code>). The alias name can contain only alphanumeric
+%% characters, forward slashes (/), underscores (_), and dashes (-). Alias
+%% names cannot begin with <code>aws</code>; that alias name prefix is
+%% reserved by Amazon Web Services (AWS).
+%%
+%% The alias and the CMK it is mapped to must be in the same AWS account and
+%% the same region. You cannot perform this operation on an alias in a
+%% different AWS account.
+%%
+%% To map an existing alias to a different CMK, call <a>UpdateAlias</a>.
 create_alias(Client, Input)
   when is_map(Client), is_map(Input) ->
     create_alias(Client, Input, []).
@@ -189,10 +215,13 @@ create_alias(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"CreateAlias">>, Input, Options).
 
-%% @doc Adds a grant to a key to specify who can use the key and under what
-%% conditions. Grants are alternate permission mechanisms to key policies.
+%% @doc Adds a grant to a customer master key (CMK). The grant specifies who
+%% can use the CMK and under what conditions. When setting permissions,
+%% grants are an alternative to key policies.
 %%
-%% For more information about grants, see <a
+%% To perform this operation on a CMK in a different AWS account, specify the
+%% key ARN in the value of the KeyId parameter. For more information about
+%% grants, see <a
 %% href="http://docs.aws.amazon.com/kms/latest/developerguide/grants.html">Grants</a>
 %% in the <i>AWS Key Management Service Developer Guide</i>.
 create_grant(Client, Input)
@@ -202,7 +231,7 @@ create_grant(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"CreateGrant">>, Input, Options).
 
-%% @doc Creates a customer master key (CMK).
+%% @doc Creates a customer master key (CMK) in the caller's AWS account.
 %%
 %% You can use a CMK to encrypt small amounts of data (4 KiB or less)
 %% directly, but CMKs are more commonly used to encrypt data encryption keys
@@ -216,7 +245,8 @@ create_grant(Client, Input, Options)
 %% Key Management Service Concepts</a> in the <i>AWS Key Management Service
 %% Developer Guide</i>
 %%
-%% </li> </ul>
+%% </li> </ul> You cannot use this operation to create a CMK in a different
+%% AWS account.
 create_key(Client, Input)
   when is_map(Client), is_map(Input) ->
     create_key(Client, Input, []).
@@ -225,7 +255,7 @@ create_key(Client, Input, Options)
     request(Client, <<"CreateKey">>, Input, Options).
 
 %% @doc Decrypts ciphertext. Ciphertext is plaintext that has been previously
-%% encrypted by using any of the following functions:
+%% encrypted by using any of the following operations:
 %%
 %% <ul> <li> <a>GenerateDataKey</a>
 %%
@@ -249,8 +279,18 @@ decrypt(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"Decrypt">>, Input, Options).
 
-%% @doc Deletes the specified alias. To map an alias to a different key, call
-%% <a>UpdateAlias</a>.
+%% @doc Deletes the specified alias. You cannot perform this operation on an
+%% alias in a different AWS account.
+%%
+%% Because an alias is not a property of a CMK, you can delete and change the
+%% aliases of a CMK without affecting the CMK. Also, aliases do not appear in
+%% the response from the <a>DescribeKey</a> operation. To get the aliases of
+%% all CMKs, use the <a>ListAliases</a> operation.
+%%
+%% Each CMK can have multiple aliases. To change the alias of a CMK, use
+%% <a>DeleteAlias</a> to delete the current alias and <a>CreateAlias</a> to
+%% create a new alias. To associate an existing alias with a different
+%% customer master key (CMK), call <a>UpdateAlias</a>.
 delete_alias(Client, Input)
   when is_map(Client), is_map(Input) ->
     delete_alias(Client, Input, []).
@@ -258,8 +298,31 @@ delete_alias(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"DeleteAlias">>, Input, Options).
 
-%% @doc Provides detailed information about the specified customer master
-%% key.
+%% @doc Deletes key material that you previously imported. This operation
+%% makes the specified customer master key (CMK) unusable. For more
+%% information about importing key material into AWS KMS, see <a
+%% href="http://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html">Importing
+%% Key Material</a> in the <i>AWS Key Management Service Developer Guide</i>.
+%% You cannot perform this operation on a CMK in a different AWS account.
+%%
+%% When the specified CMK is in the <code>PendingDeletion</code> state, this
+%% operation does not change the CMK's state. Otherwise, it changes the CMK's
+%% state to <code>PendingImport</code>.
+%%
+%% After you delete key material, you can use <a>ImportKeyMaterial</a> to
+%% reimport the same key material into the CMK.
+delete_imported_key_material(Client, Input)
+  when is_map(Client), is_map(Input) ->
+    delete_imported_key_material(Client, Input, []).
+delete_imported_key_material(Client, Input, Options)
+  when is_map(Client), is_map(Input), is_list(Options) ->
+    request(Client, <<"DeleteImportedKeyMaterial">>, Input, Options).
+
+%% @doc Provides detailed information about the specified customer master key
+%% (CMK).
+%%
+%% To perform this operation on a CMK in a different AWS account, specify the
+%% key ARN or alias ARN in the value of the KeyId parameter.
 describe_key(Client, Input)
   when is_map(Client), is_map(Input) ->
     describe_key(Client, Input, []).
@@ -268,8 +331,10 @@ describe_key(Client, Input, Options)
     request(Client, <<"DescribeKey">>, Input, Options).
 
 %% @doc Sets the state of a customer master key (CMK) to disabled, thereby
-%% preventing its use for cryptographic operations. For more information
-%% about how key state affects the use of a CMK, see <a
+%% preventing its use for cryptographic operations. You cannot perform this
+%% operation on a CMK in a different AWS account.
+%%
+%% For more information about how key state affects the use of a CMK, see <a
 %% href="http://docs.aws.amazon.com/kms/latest/developerguide/key-state.html">How
 %% Key State Affects the Use of a Customer Master Key</a> in the <i>AWS Key
 %% Management Service Developer Guide</i>.
@@ -280,7 +345,9 @@ disable_key(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"DisableKey">>, Input, Options).
 
-%% @doc Disables rotation of the specified key.
+%% @doc Disables automatic rotation of the key material for the specified
+%% customer master key (CMK). You cannot perform this operation on a CMK in a
+%% different AWS account.
 disable_key_rotation(Client, Input)
   when is_map(Client), is_map(Input) ->
     disable_key_rotation(Client, Input, []).
@@ -288,7 +355,9 @@ disable_key_rotation(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"DisableKeyRotation">>, Input, Options).
 
-%% @doc Marks a key as enabled, thereby permitting its use.
+%% @doc Sets the state of a customer master key (CMK) to enabled, thereby
+%% permitting its use for cryptographic operations. You cannot perform this
+%% operation on a CMK in a different AWS account.
 enable_key(Client, Input)
   when is_map(Client), is_map(Input) ->
     enable_key(Client, Input, []).
@@ -296,7 +365,9 @@ enable_key(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"EnableKey">>, Input, Options).
 
-%% @doc Enables rotation of the specified customer master key.
+%% @doc Enables automatic rotation of the key material for the specified
+%% customer master key (CMK). You cannot perform this operation on a CMK in a
+%% different AWS account.
 enable_key_rotation(Client, Input)
   when is_map(Client), is_map(Input) ->
     enable_key_rotation(Client, Input, []).
@@ -304,29 +375,30 @@ enable_key_rotation(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"EnableKeyRotation">>, Input, Options).
 
-%% @doc Encrypts plaintext into ciphertext by using a customer master key.
-%% The <code>Encrypt</code> function has two primary use cases:
+%% @doc Encrypts plaintext into ciphertext by using a customer master key
+%% (CMK). The <code>Encrypt</code> operation has two primary use cases:
 %%
-%% <ul> <li> You can encrypt up to 4 KB of arbitrary data such as an RSA key,
-%% a database password, or other sensitive customer information.
+%% <ul> <li> You can encrypt up to 4 kilobytes (4096 bytes) of arbitrary data
+%% such as an RSA key, a database password, or other sensitive information.
 %%
-%% </li> <li> If you are moving encrypted data from one region to another,
-%% you can use this API to encrypt in the new region the plaintext data key
+%% </li> <li> To move encrypted data from one AWS region to another, you can
+%% use this operation to encrypt in the new region the plaintext data key
 %% that was used to encrypt the data in the original region. This provides
 %% you with an encrypted copy of the data key that can be decrypted in the
 %% new region and used there to decrypt the encrypted data.
 %%
-%% </li> </ul> Unless you are moving encrypted data from one region to
-%% another, you don't use this function to encrypt a generated data key
-%% within a region. You retrieve data keys already encrypted by calling the
-%% <a>GenerateDataKey</a> or <a>GenerateDataKeyWithoutPlaintext</a> function.
-%% Data keys don't need to be encrypted again by calling
-%% <code>Encrypt</code>.
+%% </li> </ul> To perform this operation on a CMK in a different AWS account,
+%% specify the key ARN or alias ARN in the value of the KeyId parameter.
 %%
-%% If you want to encrypt data locally in your application, you can use the
-%% <code>GenerateDataKey</code> function to return a plaintext data
-%% encryption key and a copy of the key encrypted under the customer master
-%% key (CMK) of your choosing.
+%% Unless you are moving encrypted data from one region to another, you don't
+%% use this operation to encrypt a generated data key within a region. To get
+%% data keys that are already encrypted, call the <a>GenerateDataKey</a> or
+%% <a>GenerateDataKeyWithoutPlaintext</a> operation. Data keys don't need to
+%% be encrypted again by calling <code>Encrypt</code>.
+%%
+%% To encrypt data locally in your application, use the
+%% <a>GenerateDataKey</a> operation to return a plaintext data encryption key
+%% and a copy of the key encrypted under the CMK of your choosing.
 encrypt(Client, Input)
   when is_map(Client), is_map(Input) ->
     encrypt(Client, Input, []).
@@ -334,42 +406,58 @@ encrypt(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"Encrypt">>, Input, Options).
 
-%% @doc Generates a data key that you can use in your application to locally
-%% encrypt data. This call returns a plaintext version of the key in the
-%% <code>Plaintext</code> field of the response object and an encrypted copy
-%% of the key in the <code>CiphertextBlob</code> field. The key is encrypted
-%% by using the master key specified by the <code>KeyId</code> field. To
-%% decrypt the encrypted key, pass it to the <code>Decrypt</code> API.
+%% @doc Returns a data encryption key that you can use in your application to
+%% encrypt data locally.
 %%
-%% We recommend that you use the following pattern to locally encrypt data:
-%% call the <code>GenerateDataKey</code> API, use the key returned in the
-%% <code>Plaintext</code> response field to locally encrypt data, and then
-%% erase the plaintext data key from memory. Store the encrypted data key
-%% (contained in the <code>CiphertextBlob</code> field) alongside of the
-%% locally encrypted data.
+%% You must specify the customer master key (CMK) under which to generate the
+%% data key. You must also specify the length of the data key using either
+%% the <code>KeySpec</code> or <code>NumberOfBytes</code> field. You must
+%% specify one field or the other, but not both. For common key lengths
+%% (128-bit and 256-bit symmetric keys), we recommend that you use
+%% <code>KeySpec</code>. To perform this operation on a CMK in a different
+%% AWS account, specify the key ARN or alias ARN in the value of the KeyId
+%% parameter.
 %%
-%% <note> You should not call the <code>Encrypt</code> function to re-encrypt
-%% your data keys within a region. <code>GenerateDataKey</code> always
-%% returns the data key encrypted and tied to the customer master key that
-%% will be used to decrypt it. There is no need to decrypt it twice.
+%% This operation returns a plaintext copy of the data key in the
+%% <code>Plaintext</code> field of the response, and an encrypted copy of the
+%% data key in the <code>CiphertextBlob</code> field. The data key is
+%% encrypted under the CMK specified in the <code>KeyId</code> field of the
+%% request.
 %%
-%% </note> If you decide to use the optional <code>EncryptionContext</code>
-%% parameter, you must also store the context in full or at least store
-%% enough information along with the encrypted data to be able to reconstruct
-%% the context when submitting the ciphertext to the <code>Decrypt</code>
-%% API. It is a good practice to choose a context that you can reconstruct on
-%% the fly to better secure the ciphertext. For more information about how
-%% this parameter is used, see <a
-%% href="http://docs.aws.amazon.com/kms/latest/developerguide/encrypt-context.html">Encryption
-%% Context</a>.
+%% We recommend that you use the following pattern to encrypt data locally in
+%% your application:
 %%
-%% To decrypt data, pass the encrypted data key to the <code>Decrypt</code>
-%% API. <code>Decrypt</code> uses the associated master key to decrypt the
-%% encrypted data key and returns it as plaintext. Use the plaintext data key
-%% to locally decrypt your data and then erase the key from memory. You must
-%% specify the encryption context, if any, that you specified when you
-%% generated the key. The encryption context is logged by CloudTrail, and you
-%% can use this log to help track the use of particular data.
+%% <ol> <li> Use this operation (<code>GenerateDataKey</code>) to get a data
+%% encryption key.
+%%
+%% </li> <li> Use the plaintext data encryption key (returned in the
+%% <code>Plaintext</code> field of the response) to encrypt data locally,
+%% then erase the plaintext data key from memory.
+%%
+%% </li> <li> Store the encrypted data key (returned in the
+%% <code>CiphertextBlob</code> field of the response) alongside the locally
+%% encrypted data.
+%%
+%% </li> </ol> To decrypt data locally:
+%%
+%% <ol> <li> Use the <a>Decrypt</a> operation to decrypt the encrypted data
+%% key into a plaintext copy of the data key.
+%%
+%% </li> <li> Use the plaintext data key to decrypt data locally, then erase
+%% the plaintext data key from memory.
+%%
+%% </li> </ol> To return only an encrypted copy of the data key, use
+%% <a>GenerateDataKeyWithoutPlaintext</a>. To return a random byte string
+%% that is cryptographically secure, use <a>GenerateRandom</a>.
+%%
+%% If you use the optional <code>EncryptionContext</code> field, you must
+%% store at least enough information to be able to reconstruct the full
+%% encryption context when you later send the ciphertext to the
+%% <a>Decrypt</a> operation. It is a good practice to choose an encryption
+%% context that you can reconstruct on the fly to better secure the
+%% ciphertext. For more information, see <a
+%% href="http://docs.aws.amazon.com/kms/latest/developerguide/encryption-context.html">Encryption
+%% Context</a> in the <i>AWS Key Management Service Developer Guide</i>.
 generate_data_key(Client, Input)
   when is_map(Client), is_map(Input) ->
     generate_data_key(Client, Input, []).
@@ -377,11 +465,26 @@ generate_data_key(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"GenerateDataKey">>, Input, Options).
 
-%% @doc Returns a data key encrypted by a customer master key without the
-%% plaintext copy of that key. Otherwise, this API functions exactly like
-%% <a>GenerateDataKey</a>. You can use this API to, for example, satisfy an
-%% audit requirement that an encrypted key be made available without exposing
-%% the plaintext copy of that key.
+%% @doc Returns a data encryption key encrypted under a customer master key
+%% (CMK). This operation is identical to <a>GenerateDataKey</a> but returns
+%% only the encrypted copy of the data key.
+%%
+%% To perform this operation on a CMK in a different AWS account, specify the
+%% key ARN or alias ARN in the value of the KeyId parameter.
+%%
+%% This operation is useful in a system that has multiple components with
+%% different degrees of trust. For example, consider a system that stores
+%% encrypted data in containers. Each container stores the encrypted data and
+%% an encrypted copy of the data key. One component of the system, called the
+%% <i>control plane</i>, creates new containers. When it creates a new
+%% container, it uses this operation
+%% (<code>GenerateDataKeyWithoutPlaintext</code>) to get an encrypted data
+%% key and then stores it in the container. Later, a different component of
+%% the system, called the <i>data plane</i>, puts encrypted data into the
+%% containers. To do this, it passes the encrypted data key to the
+%% <a>Decrypt</a> operation, then uses the returned plaintext data key to
+%% encrypt data, and finally stores the encrypted data in the container. In
+%% this system, the control plane never sees the plaintext data key.
 generate_data_key_without_plaintext(Client, Input)
   when is_map(Client), is_map(Input) ->
     generate_data_key_without_plaintext(Client, Input, []).
@@ -389,7 +492,12 @@ generate_data_key_without_plaintext(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"GenerateDataKeyWithoutPlaintext">>, Input, Options).
 
-%% @doc Generates an unpredictable byte string.
+%% @doc Returns a random byte string that is cryptographically secure.
+%%
+%% For more information about entropy and random number generation, see the
+%% <a
+%% href="https://d0.awsstatic.com/whitepapers/KMS-Cryptographic-Details.pdf">AWS
+%% Key Management Service Cryptographic Details</a> whitepaper.
 generate_random(Client, Input)
   when is_map(Client), is_map(Input) ->
     generate_random(Client, Input, []).
@@ -397,7 +505,9 @@ generate_random(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"GenerateRandom">>, Input, Options).
 
-%% @doc Retrieves a policy attached to the specified key.
+%% @doc Gets a key policy attached to the specified customer master key
+%% (CMK). You cannot perform this operation on a CMK in a different AWS
+%% account.
 get_key_policy(Client, Input)
   when is_map(Client), is_map(Input) ->
     get_key_policy(Client, Input, []).
@@ -405,8 +515,11 @@ get_key_policy(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"GetKeyPolicy">>, Input, Options).
 
-%% @doc Retrieves a Boolean value that indicates whether key rotation is
-%% enabled for the specified key.
+%% @doc Gets a Boolean value that indicates whether automatic rotation of the
+%% key material is enabled for the specified customer master key (CMK).
+%%
+%% To perform this operation on a CMK in a different AWS account, specify the
+%% key ARN in the value of the KeyId parameter.
 get_key_rotation_status(Client, Input)
   when is_map(Client), is_map(Input) ->
     get_key_rotation_status(Client, Input, []).
@@ -414,7 +527,90 @@ get_key_rotation_status(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"GetKeyRotationStatus">>, Input, Options).
 
-%% @doc Lists all of the key aliases in the account.
+%% @doc Returns the items you need in order to import key material into AWS
+%% KMS from your existing key management infrastructure. For more information
+%% about importing key material into AWS KMS, see <a
+%% href="http://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html">Importing
+%% Key Material</a> in the <i>AWS Key Management Service Developer Guide</i>.
+%%
+%% You must specify the key ID of the customer master key (CMK) into which
+%% you will import key material. This CMK's <code>Origin</code> must be
+%% <code>EXTERNAL</code>. You must also specify the wrapping algorithm and
+%% type of wrapping key (public key) that you will use to encrypt the key
+%% material. You cannot perform this operation on a CMK in a different AWS
+%% account.
+%%
+%% This operation returns a public key and an import token. Use the public
+%% key to encrypt the key material. Store the import token to send with a
+%% subsequent <a>ImportKeyMaterial</a> request. The public key and import
+%% token from the same response must be used together. These items are valid
+%% for 24 hours. When they expire, they cannot be used for a subsequent
+%% <a>ImportKeyMaterial</a> request. To get new ones, send another
+%% <code>GetParametersForImport</code> request.
+get_parameters_for_import(Client, Input)
+  when is_map(Client), is_map(Input) ->
+    get_parameters_for_import(Client, Input, []).
+get_parameters_for_import(Client, Input, Options)
+  when is_map(Client), is_map(Input), is_list(Options) ->
+    request(Client, <<"GetParametersForImport">>, Input, Options).
+
+%% @doc Imports key material into an existing AWS KMS customer master key
+%% (CMK) that was created without key material. You cannot perform this
+%% operation on a CMK in a different AWS account. For more information about
+%% creating CMKs with no key material and then importing key material, see <a
+%% href="http://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html">Importing
+%% Key Material</a> in the <i>AWS Key Management Service Developer Guide</i>.
+%%
+%% Before using this operation, call <a>GetParametersForImport</a>. Its
+%% response includes a public key and an import token. Use the public key to
+%% encrypt the key material. Then, submit the import token from the same
+%% <code>GetParametersForImport</code> response.
+%%
+%% When calling this operation, you must specify the following values:
+%%
+%% <ul> <li> The key ID or key ARN of a CMK with no key material. Its
+%% <code>Origin</code> must be <code>EXTERNAL</code>.
+%%
+%% To create a CMK with no key material, call <a>CreateKey</a> and set the
+%% value of its <code>Origin</code> parameter to <code>EXTERNAL</code>. To
+%% get the <code>Origin</code> of a CMK, call <a>DescribeKey</a>.)
+%%
+%% </li> <li> The encrypted key material. To get the public key to encrypt
+%% the key material, call <a>GetParametersForImport</a>.
+%%
+%% </li> <li> The import token that <a>GetParametersForImport</a> returned.
+%% This token and the public key used to encrypt the key material must have
+%% come from the same response.
+%%
+%% </li> <li> Whether the key material expires and if so, when. If you set an
+%% expiration date, you can change it only by reimporting the same key
+%% material and specifying a new expiration date. If the key material
+%% expires, AWS KMS deletes the key material and the CMK becomes unusable. To
+%% use the CMK again, you must reimport the same key material.
+%%
+%% </li> </ul> When this operation is successful, the CMK's key state changes
+%% from <code>PendingImport</code> to <code>Enabled</code>, and you can use
+%% the CMK. After you successfully import key material into a CMK, you can
+%% reimport the same key material into that CMK, but you cannot import
+%% different key material.
+import_key_material(Client, Input)
+  when is_map(Client), is_map(Input) ->
+    import_key_material(Client, Input, []).
+import_key_material(Client, Input, Options)
+  when is_map(Client), is_map(Input), is_list(Options) ->
+    request(Client, <<"ImportKeyMaterial">>, Input, Options).
+
+%% @doc Gets a list of all aliases in the caller's AWS account and region.
+%% You cannot list aliases in other accounts. For more information about
+%% aliases, see <a>CreateAlias</a>.
+%%
+%% The response might include several aliases that do not have a
+%% <code>TargetKeyId</code> field because they are not associated with a CMK.
+%% These are predefined aliases that are reserved for CMKs managed by AWS
+%% services. If an alias is not associated with a CMK, the alias does not
+%% count against the <a
+%% href="http://docs.aws.amazon.com/kms/latest/developerguide/limits.html#aliases-limit">alias
+%% limit</a> for your account.
 list_aliases(Client, Input)
   when is_map(Client), is_map(Input) ->
     list_aliases(Client, Input, []).
@@ -422,7 +618,11 @@ list_aliases(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"ListAliases">>, Input, Options).
 
-%% @doc List the grants for a specified key.
+%% @doc Gets a list of all grants for the specified customer master key
+%% (CMK).
+%%
+%% To perform this operation on a CMK in a different AWS account, specify the
+%% key ARN in the value of the KeyId parameter.
 list_grants(Client, Input)
   when is_map(Client), is_map(Input) ->
     list_grants(Client, Input, []).
@@ -430,7 +630,11 @@ list_grants(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"ListGrants">>, Input, Options).
 
-%% @doc Retrieves a list of policies attached to a key.
+%% @doc Gets the names of the key policies that are attached to a customer
+%% master key (CMK). This operation is designed to get policy names that you
+%% can use in a <a>GetKeyPolicy</a> operation. However, the only valid policy
+%% name is <code>default</code>. You cannot perform this operation on a CMK
+%% in a different AWS account.
 list_key_policies(Client, Input)
   when is_map(Client), is_map(Input) ->
     list_key_policies(Client, Input, []).
@@ -438,13 +642,25 @@ list_key_policies(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"ListKeyPolicies">>, Input, Options).
 
-%% @doc Lists the customer master keys.
+%% @doc Gets a list of all customer master keys (CMKs) in the caller's AWS
+%% account and region.
 list_keys(Client, Input)
   when is_map(Client), is_map(Input) ->
     list_keys(Client, Input, []).
 list_keys(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"ListKeys">>, Input, Options).
+
+%% @doc Returns a list of all tags for the specified customer master key
+%% (CMK).
+%%
+%% You cannot perform this operation on a CMK in a different AWS account.
+list_resource_tags(Client, Input)
+  when is_map(Client), is_map(Input) ->
+    list_resource_tags(Client, Input, []).
+list_resource_tags(Client, Input, Options)
+  when is_map(Client), is_map(Input), is_list(Options) ->
+    request(Client, <<"ListResourceTags">>, Input, Options).
 
 %% @doc Returns a list of all grants for which the grant's
 %% <code>RetiringPrincipal</code> matches the one specified.
@@ -458,7 +674,8 @@ list_retirable_grants(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"ListRetirableGrants">>, Input, Options).
 
-%% @doc Attaches a key policy to the specified customer master key (CMK).
+%% @doc Attaches a key policy to the specified customer master key (CMK). You
+%% cannot perform this operation on a CMK in a different AWS account.
 %%
 %% For more information about key policies, see <a
 %% href="http://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html">Key
@@ -470,19 +687,23 @@ put_key_policy(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"PutKeyPolicy">>, Input, Options).
 
-%% @doc Encrypts data on the server side with a new customer master key
+%% @doc Encrypts data on the server side with a new customer master key (CMK)
 %% without exposing the plaintext of the data on the client side. The data is
-%% first decrypted and then encrypted. This operation can also be used to
+%% first decrypted and then reencrypted. You can also use this operation to
 %% change the encryption context of a ciphertext.
 %%
-%% Unlike other actions, <code>ReEncrypt</code> is authorized twice - once as
-%% <code>ReEncryptFrom</code> on the source key and once as
-%% <code>ReEncryptTo</code> on the destination key. We therefore recommend
-%% that you include the <code>"action":"kms:ReEncrypt*"</code> statement in
-%% your key policies to permit re-encryption from or to the key. The
-%% statement is included automatically when you authorize use of the key
-%% through the console but must be included manually when you set a policy by
-%% using the <a>PutKeyPolicy</a> function.
+%% You can reencrypt data using CMKs in different AWS accounts.
+%%
+%% Unlike other operations, <code>ReEncrypt</code> is authorized twice, once
+%% as <code>ReEncryptFrom</code> on the source CMK and once as
+%% <code>ReEncryptTo</code> on the destination CMK. We recommend that you
+%% include the <code>"kms:ReEncrypt*"</code> permission in your <a
+%% href="http://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html">key
+%% policies</a> to permit reencryption from or to the CMK. This permission is
+%% automatically included in the key policy when you create a CMK through the
+%% console, but you must include it manually when you create a CMK
+%% programmatically or when you set a key policy with the <a>PutKeyPolicy</a>
+%% operation.
 re_encrypt(Client, Input)
   when is_map(Client), is_map(Input) ->
     re_encrypt(Client, Input, []).
@@ -490,23 +711,23 @@ re_encrypt(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"ReEncrypt">>, Input, Options).
 
-%% @doc Retires a grant. You can retire a grant when you're done using it to
-%% clean up. You should revoke a grant when you intend to actively deny
+%% @doc Retires a grant. To clean up, you can retire a grant when you're done
+%% using it. You should revoke a grant when you intend to actively deny
 %% operations that depend on it. The following are permitted to call this
 %% API:
 %%
-%% <ul> <li> The account that created the grant
+%% <ul> <li> The AWS account (root user) under which the grant was created
 %%
-%% </li> <li> The <code>RetiringPrincipal</code>, if present
+%% </li> <li> The <code>RetiringPrincipal</code>, if present in the grant
 %%
 %% </li> <li> The <code>GranteePrincipal</code>, if <code>RetireGrant</code>
-%% is a grantee operation
+%% is an operation specified in the grant
 %%
-%% </li> </ul> The grant to retire must be identified by its grant token or
-%% by a combination of the key ARN and the grant ID. A grant token is a
-%% unique variable-length base64-encoded string. A grant ID is a 64 character
-%% unique identifier of a grant. Both are returned by the
-%% <code>CreateGrant</code> function.
+%% </li> </ul> You must identify the grant to retire by its grant token or by
+%% a combination of the grant ID and the Amazon Resource Name (ARN) of the
+%% customer master key (CMK). A grant token is a unique variable-length
+%% base64-encoded string. A grant ID is a 64 character unique identifier of a
+%% grant. The <a>CreateGrant</a> operation returns both.
 retire_grant(Client, Input)
   when is_map(Client), is_map(Input) ->
     retire_grant(Client, Input, []).
@@ -514,8 +735,12 @@ retire_grant(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"RetireGrant">>, Input, Options).
 
-%% @doc Revokes a grant. You can revoke a grant to actively deny operations
-%% that depend on it.
+%% @doc Revokes the specified grant for the specified customer master key
+%% (CMK). You can revoke a grant to actively deny operations that depend on
+%% it.
+%%
+%% To perform this operation on a CMK in a different AWS account, specify the
+%% key ARN in the value of the KeyId parameter.
 revoke_grant(Client, Input)
   when is_map(Client), is_map(Input) ->
     revoke_grant(Client, Input, []).
@@ -530,7 +755,9 @@ revoke_grant(Client, Input, Options)
 %% <code>PendingDeletion</code>. Before the waiting period ends, you can use
 %% <a>CancelKeyDeletion</a> to cancel the deletion of the CMK. After the
 %% waiting period ends, AWS KMS deletes the CMK and all AWS KMS data
-%% associated with it, including all aliases that point to it.
+%% associated with it, including all aliases that refer to it.
+%%
+%% You cannot perform this operation on a CMK in a different AWS account.
 %%
 %% <important> Deleting a CMK is a destructive and potentially dangerous
 %% operation. When a CMK is deleted, all data that was encrypted under the
@@ -549,20 +776,68 @@ schedule_key_deletion(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"ScheduleKeyDeletion">>, Input, Options).
 
-%% @doc Updates an alias to map it to a different key.
+%% @doc Adds or overwrites one or more tags for the specified customer master
+%% key (CMK). You cannot perform this operation on a CMK in a different AWS
+%% account.
 %%
-%% An alias is not a property of a key. Therefore, an alias can be mapped to
-%% and unmapped from an existing key without changing the properties of the
-%% key.
+%% Each tag consists of a tag key and a tag value. Tag keys and tag values
+%% are both required, but tag values can be empty (null) strings.
+%%
+%% You cannot use the same tag key more than once per CMK. For example,
+%% consider a CMK with one tag whose tag key is <code>Purpose</code> and tag
+%% value is <code>Test</code>. If you send a <code>TagResource</code> request
+%% for this CMK with a tag key of <code>Purpose</code> and a tag value of
+%% <code>Prod</code>, it does not create a second tag. Instead, the original
+%% tag is overwritten with the new tag value.
+%%
+%% For information about the rules that apply to tag keys and tag values, see
+%% <a
+%% href="http://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/allocation-tag-restrictions.html">User-Defined
+%% Tag Restrictions</a> in the <i>AWS Billing and Cost Management User
+%% Guide</i>.
+tag_resource(Client, Input)
+  when is_map(Client), is_map(Input) ->
+    tag_resource(Client, Input, []).
+tag_resource(Client, Input, Options)
+  when is_map(Client), is_map(Input), is_list(Options) ->
+    request(Client, <<"TagResource">>, Input, Options).
+
+%% @doc Removes the specified tag or tags from the specified customer master
+%% key (CMK). You cannot perform this operation on a CMK in a different AWS
+%% account.
+%%
+%% To remove a tag, you specify the tag key for each tag to remove. You do
+%% not specify the tag value. To overwrite the tag value for an existing tag,
+%% use <a>TagResource</a>.
+untag_resource(Client, Input)
+  when is_map(Client), is_map(Input) ->
+    untag_resource(Client, Input, []).
+untag_resource(Client, Input, Options)
+  when is_map(Client), is_map(Input), is_list(Options) ->
+    request(Client, <<"UntagResource">>, Input, Options).
+
+%% @doc Associates an existing alias with a different customer master key
+%% (CMK). Each CMK can have multiple aliases, but the aliases must be unique
+%% within the account and region. You cannot perform this operation on an
+%% alias in a different AWS account.
+%%
+%% This operation works only on existing aliases. To change the alias of a
+%% CMK to a new value, use <a>CreateAlias</a> to create a new alias and
+%% <a>DeleteAlias</a> to delete the old alias.
+%%
+%% Because an alias is not a property of a CMK, you can create, update, and
+%% delete the aliases of a CMK without affecting the CMK. Also, aliases do
+%% not appear in the response from the <a>DescribeKey</a> operation. To get
+%% the aliases of all CMKs in the account, use the <a>ListAliases</a>
+%% operation.
 %%
 %% An alias name can contain only alphanumeric characters, forward slashes
 %% (/), underscores (_), and dashes (-). An alias must start with the word
-%% "alias" followed by a forward slash (alias/). An alias that begins with
-%% "aws" after the forward slash (alias/aws...) is reserved by Amazon Web
+%% <code>alias</code> followed by a forward slash (<code>alias/</code>). The
+%% alias name can contain only alphanumeric characters, forward slashes (/),
+%% underscores (_), and dashes (-). Alias names cannot begin with
+%% <code>aws</code>; that alias name prefix is reserved by Amazon Web
 %% Services (AWS).
-%%
-%% The alias and the key it is mapped to must be in the same AWS account and
-%% the same region.
 update_alias(Client, Input)
   when is_map(Client), is_map(Input) ->
     update_alias(Client, Input, []).
@@ -570,7 +845,10 @@ update_alias(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"UpdateAlias">>, Input, Options).
 
-%% @doc Updates the description of a key.
+%% @doc Updates the description of a customer master key (CMK). To see the
+%% decription of a CMK, use <a>DescribeKey</a>.
+%%
+%% You cannot perform this operation on a CMK in a different AWS account.
 update_key_description(Client, Input)
   when is_map(Client), is_map(Input) ->
     update_key_description(Client, Input, []).

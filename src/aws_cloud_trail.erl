@@ -22,8 +22,10 @@
 %% href="http://aws.amazon.com/tools/">Tools for Amazon Web Services
 %% page</a>.
 %%
-%% </note> See the CloudTrail User Guide for information about the data that
-%% is included with each AWS API call listed in the log files.
+%% </note> See the <a
+%% href="http://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-user-guide.html">AWS
+%% CloudTrail User Guide</a> for information about the data that is included
+%% with each AWS API call listed in the log files.
 -module(aws_cloud_trail).
 
 -export([add_tags/2,
@@ -34,6 +36,8 @@
          delete_trail/3,
          describe_trails/2,
          describe_trails/3,
+         get_event_selectors/2,
+         get_event_selectors/3,
          get_trail_status/2,
          get_trail_status/3,
          list_public_keys/2,
@@ -42,6 +46,8 @@
          list_tags/3,
          lookup_events/2,
          lookup_events/3,
+         put_event_selectors/2,
+         put_event_selectors/3,
          remove_tags/2,
          remove_tags/3,
          start_logging/2,
@@ -57,7 +63,7 @@
 %% API
 %%====================================================================
 
-%% @doc Adds one or more tags to a trail, up to a limit of 10. Tags must be
+%% @doc Adds one or more tags to a trail, up to a limit of 50. Tags must be
 %% unique per trail. Overwrites an existing tag's value when a new value is
 %% specified for an existing tag key. If you specify a key without a value,
 %% the tag will be created with the specified key and a value of null. You
@@ -100,6 +106,28 @@ describe_trails(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"DescribeTrails">>, Input, Options).
 
+%% @doc Describes the settings for the event selectors that you configured
+%% for your trail. The information returned for your event selectors includes
+%% the following:
+%%
+%% <ul> <li> The S3 objects that you are logging for data events.
+%%
+%% </li> <li> If your event selector includes management events.
+%%
+%% </li> <li> If your event selector includes read-only events, write-only
+%% events, or all.
+%%
+%% </li> </ul> For more information, see <a
+%% href="http://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-and-data-events-with-cloudtrail.html">Logging
+%% Data and Management Events for Trails </a> in the <i>AWS CloudTrail User
+%% Guide</i>.
+get_event_selectors(Client, Input)
+  when is_map(Client), is_map(Input) ->
+    get_event_selectors(Client, Input, []).
+get_event_selectors(Client, Input, Options)
+  when is_map(Client), is_map(Input), is_list(Options) ->
+    request(Client, <<"GetEventSelectors">>, Input, Options).
+
 %% @doc Returns a JSON-formatted list of information about the specified
 %% trail. Fields include information on delivery errors, Amazon SNS and
 %% Amazon S3 errors, and start and stop logging times for each trail. This
@@ -140,13 +168,24 @@ list_tags(Client, Input, Options)
 %% @doc Looks up API activity events captured by CloudTrail that create,
 %% update, or delete resources in your account. Events for a region can be
 %% looked up for the times in which you had CloudTrail turned on in that
-%% region during the last seven days. Lookup supports five different
-%% attributes: time range (defined by a start time and end time), user name,
-%% event name, resource type, and resource name. All attributes are optional.
-%% The maximum number of attributes that can be specified in any one lookup
-%% request are time range and one other attribute. The default number of
-%% results returned is 10, with a maximum of 50 possible. The response
-%% includes a token that you can use to get the next page of results.
+%% region during the last seven days. Lookup supports the following
+%% attributes:
+%%
+%% <ul> <li> Event ID
+%%
+%% </li> <li> Event name
+%%
+%% </li> <li> Event source
+%%
+%% </li> <li> Resource name
+%%
+%% </li> <li> Resource type
+%%
+%% </li> <li> User name
+%%
+%% </li> </ul> All attributes are optional. The default number of results
+%% returned is 10, with a maximum of 50 possible. The response includes a
+%% token that you can use to get the next page of results.
 %%
 %% <important> The rate of lookup requests is limited to one per second per
 %% account. If this limit is exceeded, a throttling error occurs.
@@ -162,6 +201,46 @@ lookup_events(Client, Input)
 lookup_events(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"LookupEvents">>, Input, Options).
+
+%% @doc Configures an event selector for your trail. Use event selectors to
+%% specify whether you want your trail to log management and/or data events.
+%% When an event occurs in your account, CloudTrail evaluates the event
+%% selectors in all trails. For each trail, if the event matches any event
+%% selector, the trail processes and logs the event. If the event doesn't
+%% match any event selector, the trail doesn't log the event.
+%%
+%% Example
+%%
+%% <ol> <li> You create an event selector for a trail and specify that you
+%% want write-only events.
+%%
+%% </li> <li> The EC2 <code>GetConsoleOutput</code> and
+%% <code>RunInstances</code> API operations occur in your account.
+%%
+%% </li> <li> CloudTrail evaluates whether the events match your event
+%% selectors.
+%%
+%% </li> <li> The <code>RunInstances</code> is a write-only event and it
+%% matches your event selector. The trail logs the event.
+%%
+%% </li> <li> The <code>GetConsoleOutput</code> is a read-only event but it
+%% doesn't match your event selector. The trail doesn't log the event.
+%%
+%% </li> </ol> The <code>PutEventSelectors</code> operation must be called
+%% from the region in which the trail was created; otherwise, an
+%% <code>InvalidHomeRegionException</code> is thrown.
+%%
+%% You can configure up to five event selectors for each trail. For more
+%% information, see <a
+%% href="http://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-and-data-events-with-cloudtrail.html">Logging
+%% Data and Management Events for Trails </a> in the <i>AWS CloudTrail User
+%% Guide</i>.
+put_event_selectors(Client, Input)
+  when is_map(Client), is_map(Input) ->
+    put_event_selectors(Client, Input, []).
+put_event_selectors(Client, Input, Options)
+  when is_map(Client), is_map(Input), is_list(Options) ->
+    request(Client, <<"PutEventSelectors">>, Input, Options).
 
 %% @doc Removes the specified tags from a trail.
 remove_tags(Client, Input)

@@ -91,13 +91,19 @@
 %% @doc Creates a new identity pool. The identity pool is a store of user
 %% identity information that is specific to your AWS account. The limit on
 %% identity pools is 60 per account. The keys for
-%% <code>SupportedLoginProviders</code> are as follows: <ul> <li>Facebook:
-%% <code>graph.facebook.com</code></li> <li>Google:
-%% <code>accounts.google.com</code></li> <li>Amazon:
-%% <code>www.amazon.com</code></li> <li>Twitter:
-%% <code>api.twitter.com</code></li> <li>Digits:
-%% <code>www.digits.com</code></li> </ul> You must use AWS Developer
-%% credentials to call this API.
+%% <code>SupportedLoginProviders</code> are as follows:
+%%
+%% <ul> <li> Facebook: <code>graph.facebook.com</code>
+%%
+%% </li> <li> Google: <code>accounts.google.com</code>
+%%
+%% </li> <li> Amazon: <code>www.amazon.com</code>
+%%
+%% </li> <li> Twitter: <code>api.twitter.com</code>
+%%
+%% </li> <li> Digits: <code>www.digits.com</code>
+%%
+%% </li> </ul> You must use AWS Developer credentials to call this API.
 create_identity_pool(Client, Input)
   when is_map(Client), is_map(Input) ->
     create_identity_pool(Client, Input, []).
@@ -281,7 +287,7 @@ merge_developer_identities(Client, Input, Options)
     request(Client, <<"MergeDeveloperIdentities">>, Input, Options).
 
 %% @doc Sets the roles for an identity pool. These roles are used when making
-%% calls to <code>GetCredentialsForIdentity</code> action.
+%% calls to <a>GetCredentialsForIdentity</a> action.
 %%
 %% You must use AWS Developer credentials to call this API.
 set_identity_pool_roles(Client, Input)

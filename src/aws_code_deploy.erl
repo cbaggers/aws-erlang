@@ -3,59 +3,78 @@
 
 %% @doc <fullname>AWS CodeDeploy</fullname>
 %%
-%% <b>Overview</b> This reference guide provides descriptions of the AWS
-%% CodeDeploy APIs. For more information about AWS CodeDeploy, see the <a
-%% href="docs.aws.amazon.com/codedeploy/latest/userguide">AWS CodeDeploy User
-%% Guide</a>.
+%% AWS CodeDeploy is a deployment service that automates application
+%% deployments to Amazon EC2 instances, on-premises instances running in your
+%% own facility, or serverless AWS Lambda functions.
 %%
-%% <b>Using the APIs</b> You can use the AWS CodeDeploy APIs to work with the
-%% following:
+%% You can deploy a nearly unlimited variety of application content, such as
+%% an updated Lambda function, code, web and configuration files,
+%% executables, packages, scripts, multimedia files, and so on. AWS
+%% CodeDeploy can deploy application content stored in Amazon S3 buckets,
+%% GitHub repositories, or Bitbucket repositories. You do not need to make
+%% changes to your existing code before you can use AWS CodeDeploy.
 %%
-%% <ul> <li> Applications are unique identifiers used by AWS CodeDeploy to
-%% ensure the correct combinations of revisions, deployment configurations,
-%% and deployment groups are being referenced during deployments.
+%% AWS CodeDeploy makes it easier for you to rapidly release new features,
+%% helps you avoid downtime during application deployment, and handles the
+%% complexity of updating your applications, without many of the risks
+%% associated with error-prone manual deployments.
 %%
-%% You can use the AWS CodeDeploy APIs to create, delete, get, list, and
-%% update applications.
+%% <b>AWS CodeDeploy Components</b>
 %%
-%% </li> <li> Deployment configurations are sets of deployment rules and
-%% success and failure conditions used by AWS CodeDeploy during deployments.
+%% Use the information in this guide to help you work with the following AWS
+%% CodeDeploy components:
 %%
-%% You can use the AWS CodeDeploy APIs to create, delete, get, and list
-%% deployment configurations.
+%% <ul> <li> <b>Application</b>: A name that uniquely identifies the
+%% application you want to deploy. AWS CodeDeploy uses this name, which
+%% functions as a container, to ensure the correct combination of revision,
+%% deployment configuration, and deployment group are referenced during a
+%% deployment.
 %%
-%% </li> <li> Deployment groups are groups of instances to which application
-%% revisions can be deployed.
+%% </li> <li> <b>Deployment group</b>: A set of individual instances or
+%% CodeDeploy Lambda applications. A Lambda deployment group contains a group
+%% of applications. An EC2/On-premises deployment group contains individually
+%% tagged instances, Amazon EC2 instances in Auto Scaling groups, or both.
 %%
-%% You can use the AWS CodeDeploy APIs to create, delete, get, list, and
-%% update deployment groups.
+%% </li> <li> <b>Deployment configuration</b>: A set of deployment rules and
+%% deployment success and failure conditions used by AWS CodeDeploy during a
+%% deployment.
 %%
-%% </li> <li> Instances represent Amazon EC2 instances to which application
-%% revisions are deployed. Instances are identified by their Amazon EC2 tags
-%% or Auto Scaling group names. Instances belong to deployment groups.
+%% </li> <li> <b>Deployment</b>: The process and the components used in the
+%% process of updating a Lambda function or of installing content on one or
+%% more instances.
 %%
-%% You can use the AWS CodeDeploy APIs to get and list instance.
+%% </li> <li> <b>Application revisions</b>: For an AWS Lambda deployment,
+%% this is an AppSpec file that specifies the Lambda function to update and
+%% one or more functions to validate deployment lifecycle events. For an
+%% EC2/On-premises deployment, this is an archive file containing source
+%% content—source code, web pages, executable files, and deployment
+%% scripts—along with an AppSpec file. Revisions are stored in Amazon S3
+%% buckets or GitHub repositories. For Amazon S3, a revision is uniquely
+%% identified by its Amazon S3 object key and its ETag, version, or both. For
+%% GitHub, a revision is uniquely identified by its commit ID.
 %%
-%% </li> <li> Deployments represent the process of deploying revisions to
-%% instances.
+%% </li> </ul> This guide also contains information to help you get details
+%% about the instances in your deployments, to make on-premises instances
+%% available for AWS CodeDeploy deployments, and to get details about a
+%% Lambda function deployment.
 %%
-%% You can use the AWS CodeDeploy APIs to create, get, list, and stop
-%% deployments.
+%% <b>AWS CodeDeploy Information Resources</b>
 %%
-%% </li> <li> Application revisions are archive files stored in Amazon S3
-%% buckets or GitHub repositories. These revisions contain source content
-%% (such as source code, web pages, executable files, and deployment scripts)
-%% along with an application specification (AppSpec) file. (The AppSpec file
-%% is unique to AWS CodeDeploy; it defines the deployment actions you want
-%% AWS CodeDeploy to execute.) Ffor application revisions stored in Amazon S3
-%% buckets, an application revision is uniquely identified by its Amazon S3
-%% object key and its ETag, version, or both. For application revisions
-%% stored in GitHub repositories, an application revision is uniquely
-%% identified by its repository name and commit ID. Application revisions are
-%% deployed through deployment groups.
+%% <ul> <li> <a
+%% href="http://docs.aws.amazon.com/codedeploy/latest/userguide">AWS
+%% CodeDeploy User Guide</a>
 %%
-%% You can use the AWS CodeDeploy APIs to get, list, and register application
-%% revisions.
+%% </li> <li> <a
+%% href="http://docs.aws.amazon.com/codedeploy/latest/APIReference/">AWS
+%% CodeDeploy API Reference Guide</a>
+%%
+%% </li> <li> <a
+%% href="http://docs.aws.amazon.com/cli/latest/reference/deploy/index.html">AWS
+%% CLI Reference for AWS CodeDeploy</a>
+%%
+%% </li> <li> <a
+%% href="https://forums.aws.amazon.com/forum.jspa?forumID=179">AWS CodeDeploy
+%% Developer Forum</a>
 %%
 %% </li> </ul>
 -module(aws_code_deploy).
@@ -74,6 +93,8 @@
          batch_get_deployments/3,
          batch_get_on_premises_instances/2,
          batch_get_on_premises_instances/3,
+         continue_deployment/2,
+         continue_deployment/3,
          create_application/2,
          create_application/3,
          create_deployment/2,
@@ -88,6 +109,8 @@
          delete_deployment_config/3,
          delete_deployment_group/2,
          delete_deployment_group/3,
+         delete_git_hub_account_token/2,
+         delete_git_hub_account_token/3,
          deregister_on_premises_instance/2,
          deregister_on_premises_instance/3,
          get_application/2,
@@ -116,14 +139,20 @@
          list_deployment_instances/3,
          list_deployments/2,
          list_deployments/3,
+         list_git_hub_account_token_names/2,
+         list_git_hub_account_token_names/3,
          list_on_premises_instances/2,
          list_on_premises_instances/3,
+         put_lifecycle_event_hook_execution_status/2,
+         put_lifecycle_event_hook_execution_status/3,
          register_application_revision/2,
          register_application_revision/3,
          register_on_premises_instance/2,
          register_on_premises_instance/3,
          remove_tags_from_on_premises_instances/2,
          remove_tags_from_on_premises_instances/3,
+         skip_wait_time_for_instance_termination/2,
+         skip_wait_time_for_instance_termination/3,
          stop_deployment/2,
          stop_deployment/3,
          update_application/2,
@@ -161,7 +190,7 @@ batch_get_applications(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"BatchGetApplications">>, Input, Options).
 
-%% @doc Get information about one or more deployment groups.
+%% @doc Gets information about one or more deployment groups.
 batch_get_deployment_groups(Client, Input)
   when is_map(Client), is_map(Input) ->
     batch_get_deployment_groups(Client, Input, []).
@@ -193,6 +222,19 @@ batch_get_on_premises_instances(Client, Input)
 batch_get_on_premises_instances(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"BatchGetOnPremisesInstances">>, Input, Options).
+
+%% @doc For a blue/green deployment, starts the process of rerouting traffic
+%% from instances in the original environment to instances in the replacement
+%% environment without waiting for a specified wait time to elapse. (Traffic
+%% rerouting, which is achieved by registering instances in the replacement
+%% environment with the load balancer, can start as soon as all instances
+%% have a status of Ready.)
+continue_deployment(Client, Input)
+  when is_map(Client), is_map(Input) ->
+    continue_deployment(Client, Input, []).
+continue_deployment(Client, Input, Options)
+  when is_map(Client), is_map(Input), is_list(Options) ->
+    request(Client, <<"ContinueDeployment">>, Input, Options).
 
 %% @doc Creates an application.
 create_application(Client, Input)
@@ -238,8 +280,10 @@ delete_application(Client, Input, Options)
 
 %% @doc Deletes a deployment configuration.
 %%
-%% <note>A deployment configuration cannot be deleted if it is currently in
-%% use. Predefined configurations cannot be deleted.</note>
+%% <note> A deployment configuration cannot be deleted if it is currently in
+%% use. Predefined configurations cannot be deleted.
+%%
+%% </note>
 delete_deployment_config(Client, Input)
   when is_map(Client), is_map(Input) ->
     delete_deployment_config(Client, Input, []).
@@ -254,6 +298,14 @@ delete_deployment_group(Client, Input)
 delete_deployment_group(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"DeleteDeploymentGroup">>, Input, Options).
+
+%% @doc Deletes a GitHub account connection.
+delete_git_hub_account_token(Client, Input)
+  when is_map(Client), is_map(Input) ->
+    delete_git_hub_account_token(Client, Input, []).
+delete_git_hub_account_token(Client, Input, Options)
+  when is_map(Client), is_map(Input), is_list(Options) ->
+    request(Client, <<"DeleteGitHubAccountToken">>, Input, Options).
 
 %% @doc Deregisters an on-premises instance.
 deregister_on_premises_instance(Client, Input)
@@ -372,6 +424,14 @@ list_deployments(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"ListDeployments">>, Input, Options).
 
+%% @doc Lists the names of stored connections to GitHub accounts.
+list_git_hub_account_token_names(Client, Input)
+  when is_map(Client), is_map(Input) ->
+    list_git_hub_account_token_names(Client, Input, []).
+list_git_hub_account_token_names(Client, Input, Options)
+  when is_map(Client), is_map(Input), is_list(Options) ->
+    request(Client, <<"ListGitHubAccountTokenNames">>, Input, Options).
+
 %% @doc Gets a list of names for one or more on-premises instances.
 %%
 %% Unless otherwise specified, both registered and deregistered on-premises
@@ -384,6 +444,17 @@ list_on_premises_instances(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"ListOnPremisesInstances">>, Input, Options).
 
+%% @doc Sets the result of a Lambda validation function. The function
+%% validates one or both lifecycle events (<code>BeforeAllowTraffic</code>
+%% and <code>AfterAllowTraffic</code>) and returns <code>Succeeded</code> or
+%% <code>Failed</code>.
+put_lifecycle_event_hook_execution_status(Client, Input)
+  when is_map(Client), is_map(Input) ->
+    put_lifecycle_event_hook_execution_status(Client, Input, []).
+put_lifecycle_event_hook_execution_status(Client, Input, Options)
+  when is_map(Client), is_map(Input), is_list(Options) ->
+    request(Client, <<"PutLifecycleEventHookExecutionStatus">>, Input, Options).
+
 %% @doc Registers with AWS CodeDeploy a revision for the specified
 %% application.
 register_application_revision(Client, Input)
@@ -394,6 +465,11 @@ register_application_revision(Client, Input, Options)
     request(Client, <<"RegisterApplicationRevision">>, Input, Options).
 
 %% @doc Registers an on-premises instance.
+%%
+%% <note> Only one IAM ARN (an IAM session ARN or IAM user ARN) is supported
+%% in the request. You cannot use both.
+%%
+%% </note>
 register_on_premises_instance(Client, Input)
   when is_map(Client), is_map(Input) ->
     register_on_premises_instance(Client, Input, []).
@@ -408,6 +484,16 @@ remove_tags_from_on_premises_instances(Client, Input)
 remove_tags_from_on_premises_instances(Client, Input, Options)
   when is_map(Client), is_map(Input), is_list(Options) ->
     request(Client, <<"RemoveTagsFromOnPremisesInstances">>, Input, Options).
+
+%% @doc In a blue/green deployment, overrides any specified wait time and
+%% starts terminating instances immediately after the traffic routing is
+%% completed.
+skip_wait_time_for_instance_termination(Client, Input)
+  when is_map(Client), is_map(Input) ->
+    skip_wait_time_for_instance_termination(Client, Input, []).
+skip_wait_time_for_instance_termination(Client, Input, Options)
+  when is_map(Client), is_map(Input), is_list(Options) ->
+    request(Client, <<"SkipWaitTimeForInstanceTermination">>, Input, Options).
 
 %% @doc Attempts to stop an ongoing deployment.
 stop_deployment(Client, Input)
